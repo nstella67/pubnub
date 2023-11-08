@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Hello, PubNub</title>
+    <!-- Update this block with the URL to the content delivery network version of the SDK -->
+    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.7.2.1.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+
+</head>
+<body>
+    <script>
+    subscribe_channel =[]
+
+    const buttonClick = () => {
+        var input = document.getElementById('message-body');
+        publishMessage(input.value);
+        input.value = '';
+    };
+
+    const showMessage = (msg) => {
+        console.log('showMessage작동')
+        var message = document.createElement('div');
+        message.innerText = msg;
+        document.getElementById('messages').appendChild(message);
+    };
+
+    let pubnub;
+
+    const setupPubNub = (res) => {
+        console.log("setupPubNub res:",res)
+
+        // Update this block with your publish/subscribe keys
+        pubnub = new PubNub({
+            publishKey : "pub-c-98390fc2-1fe0-4bac-a497-67025c63d17d",
+            subscribeKey : "sub-c-6bb21ba3-6686-49fc-adc9-8fd00ae6f120",
+            userId: "bbb@gmail.com",        //uuid로 인식된다. 웹페이지에서 중복해도 된다.
+            connect_timeout: 1
+        });
+
+
+        // add listener
+        const listener = {
+            status: (statusEvent) => {
+                if (statusEvent.category === "PNConnectedCategory") {
+                    console.log("Connected");
+                }
+            },
+            //message 이벤트가 오면
+            message: (messageEvent) => {
+                //showMessage(messageEvent.message.content);
+                showMessage(messageEvent.message.result_data.data); //text만을 가져와야 제대로 찍힌다. json 까지 가져오면 object로 찍힌다.
+            },
+            presence: (presenceEvent) => {
+                // handle presence
+            }
+        };
+        pubnub.addListener(listener);
+
+        console.log("res.data.channels:",res.data.subscribe_channels)
+        // subscribe to a channel
+        pubnub.subscribe({
+            channels: [res.data.subscribe_channels]        //항상 배열 형태가 되어야 한다
+        });
+    };
+
+    // run after page is loaded(페이지가 로드 된 이후 들어간다 . 여기에는 jwt 루틴이 들어가야 한다)
+    //window.onload = setupPubNub;
+
+    // publish message
+    const publishMessage = async (message) => {
+        // With the right payload, you can publish a message, add a reaction to a message,
+        // send a push notification, or send a small payload called a signal.
+        const publishPayload = {
+            channel : "agency.2",
+            message: {
+                title: "Hello!!!",
+                content: message
+            }
+        };
+        await pubnub.publish(publishPayload);
+    }
+
+    //버튼 눌렀을때 로그인 접속하면서 자료를 받아온다.
+    function onButtonClicked() {
+          axios({
+            method: 'post', //통신 방식
+            url: 'http://127.0.0.1:5000/red/login', //통신할 페이지
+            data: { "manager_idx": parseInt(document.getElementById('manager_idx').value)} //인자로 보낼 데이터
+          })
+            .then(res=>{
+                document.getElementById('boom').innerText=JSON.stringify(res.data).toString();      //받아온 데이터를 화면에 뿌려주자.
+                console.log("res:",res);
+
+                //받아온 데이터로 pubnub 접속하기
+                setupPubNub(res);
+
+            })
+            .catch(error=>{
+                document.getElementById('boom').innerText='error';
+                console.log(error);
+            })
+    }
+    </script>
+
+    <div>
+        <input id="manager_idx" type="text" value="1">
+    </div>
+
+    <div>
+        <h2>manager_idx를 넣으세요</h2>
+        <button onclick="onButtonClicked()">로그인하자</button>
+        <h2 id="boom">아직 로그인 안됨</h2>
+    </div>
+    <div>
+        <input id="message-body" type="text">
+        <button onclick="buttonClick()">publish from client</button>
+        <div id="messages"></div>
+    </div>
+
+</body>
+</html>
